@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wordle</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a15;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(108, 92, 231, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 206, 201, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(240, 185, 11, 0.05) 0%, transparent 70%);
+        }
+        
+        .screen {
+            display: none;
+            min-height: 100vh;
+            padding: 20px;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        /* HEADER */
+        .header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            position: relative;
+        }
+        
+        .title {
+            font-size: 34px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6c5ce7, #00cec9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+        
+        .subtitle {
+            font-size: 12px;
+            color: #888;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        /* МЕНЮ */
+        .menu-grid {
+            width: 100%;
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .menu-btn {
+            padding: 18px 20px;
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.2), rgba(0, 206, 201, 0.1));
+            border: 1px solid rgba(108, 92, 231, 0.4);
+            border-radius: 16px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .menu-btn:active {
+            transform: scale(0.98);
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.4), rgba(0, 206, 201, 0.2));
+        }
+        
+        .menu-btn .emoji {
+            font-size: 28px;
+        }
+        
+        .menu-btn .info {
+            flex: 1;
+        }
+        
+        .menu-btn .name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        
+        .menu-btn .desc {
+            font-size: 12px;
+            color: #999;
+            font-weight: 400;
+        }
+        
+        .stats-panel {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #6c5ce7;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* ИГРА */
+        .game-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .back-btn {
+            background: rgba(108, 92, 231, 0.2);
+            border: 1px solid rgba(108, 92, 231, 0.4);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .mode-badge {
+            background: linear-gradient(135deg, #6c5ce7, #00cec9);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .timer {
+            background: rgba(240, 185, 11, 0.2);
+            border: 1px solid #f0b90b;
+            color: #f0b90b;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .board {
+            display: grid;
+            gap: 6px;
+            margin: 10px 0 20px;
+            padding: 10px;
+        }
+        
+        .row {
+            display: grid;
+            gap: 6px;
+        }
+        
+        .cell {
+            width: 56px;
+            height: 56px;
+            border: 2px solid #2a2a3a;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+            background: rgba(42, 42, 58, 0.3);
+        }
+        
+        .cell.filled {
+            border-color: #6c5ce7;
+            background: rgba(108, 92, 231, 0.15);
+            animation: pop 0.12s ease-out;
+        }
+        
+        @keyframes pop {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+        
+        .cell.correct {
+            background: linear-gradient(135deg, #6c5ce7, #5a4bd1);
+            border-color: #6c5ce7;
+            box-shadow: 0 0 20px rgba(108, 92, 231, 0.5);
+        }
+        
+        .cell.present {
+            background: linear-gradient(135deg, #f0b90b, #d4a308);
+            border-color: #f0b90b;
+            box-shadow: 0 0 20px rgba(240, 185, 11, 0.4);
+        }
+        
+        .cell.absent {
+            background: #1a1a2a;
+            border-color: #1a1a2a;
+            color: #666;
+        }
+        
+        .cell.flip {
+            animation: flip 0.5s ease;
+        }
+        
+        @keyframes flip {
+            0% { transform: rotateX(0); }
+            50% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0); }
+        }
+        
+        .cell.shake {
+            animation: shake 0.4s ease;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25%, 75% { transform: translateX(-6px); }
+            50% { transform: translateX(6px); }
+        }
+        
+        .message {
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 15px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            max-width: 350px;
+        }
+        
+        .message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .message.win {
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.3), rgba(0, 206, 201, 0.3));
+            color: #a29bfe;
+            border: 1px solid #6c5ce7;
+        }
+        
+        .message.lose {
+            background: rgba(231, 76, 60, 0.2);
+            color: #ff7675;
+            border: 1px solid #e74c3c;
+        }
+        
+        .message.error {
+            background: rgba(240, 185, 11, 0.2);
+            color: #f0b90b;
+            border: 1px solid #f0b90b;
+        }
+        
+        .keyboard {
+            width: 100%;
+            max-width: 420px;
+            margin-top: 10px;
+        }
+        
+        .keyboard-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            margin-bottom: 6px;
+        }
+        
+        .key {
+            background: linear-gradient(180deg, #2a2a3a, #1f1f2f);
+            color: white;
+            border: 1px solid #3a3a4a;
+            border-radius: 8px;
+            padding: 0;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            height: 44px;
+            min-width: 26px;
+            flex: 1;
+            max-width: 38px;
+            text-transform: uppercase;
+            transition: all 0.1s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .key:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .key.wide {
+            max-width: 62px;
+            flex: 1.5;
+            font-size: 11px;
+        }
+        
+        .key.correct {
+            background: linear-gradient(180deg, #6c5ce7, #5a4bd1);
+            border-color: #6c5ce7;
+        }
+        
+        .key.present {
+            background: linear-gradient(180deg, #f0b90b, #d4a308);
+            border-color: #f0b90b;
+        }
+        
+        .key.absent {
+            background: #0a0a15;
+            color: #444;
+            border-color: #1a1a2a;
+            opacity: 0.6;
+        }
+        
+        /* ЭКРАН РЕЗУЛЬТАТА */
+        .result-card {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.2), rgba(0, 206, 201, 0.1));
+            border: 1px solid rgba(108, 92, 231, 0.4);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .result-emoji {
+            font-size: 80px;
+            margin-bottom: 15px;
+        }
+        
+        .result-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #6c5ce7, #00cec9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .result-word {
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: 8px;
+            margin: 20px 0;
+            color: #fff;
+        }
+        
+        .result-stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .result-stat {
+            text-align: center;
+        }
+        
+        .result-stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #6c5ce7;
+            display: block;
+        }
+        
+        .result-stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        .action-btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #6c5ce7, #00cec9);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 15px;
+            width: 100%;
+            box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+            font-family: inherit;
+        }
+        
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .action-btn.secondary {
+            background: rgba(108, 92, 231, 0.2);
+            border: 1px solid rgba(108, 92, 231, 0.4);
+            box-shadow: none;
+            margin-top: 10px;
+        }
+        
+        /* АЧИВКИ */
+        .achievement {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(108, 92, 231, 0.1);
+            border: 1px solid rgba(108, 92, 231, 0.3);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+        
+        .achievement.locked {
+            opacity: 0.4;
+        }
+        
+        .achievement-icon {
+            font-size: 28px;
+        }
+        
+        .achievement-info {
+            flex: 1;
+        }
+        
+        .achievement-name {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        
+        .achievement-desc {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        @media (max-width: 400px) {
+            .cell {
+                width: 50px;
+                height: 50px;
+                font-size: 22px;
+            }
+            .key {
+                height: 40px;
+                font-size: 13px;
+            }
+            .title {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ЭКРАН МЕНЮ -->
+    <div class="screen active" id="menuScreen">
+        <div class="container">
+            <div class="header">
+                <div class="title">🎮 WORDLE</div>
+                <div class="subtitle">Угадай слово</div>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <span class="stat-value" id="menuGames">0</span>
+                    <span class="stat-label">Игр</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="menuWins">0</span>
+                    <span class="stat-label">Побед</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="menuStreak">0</span>
+                    <span class="stat-label">Серия</span>
+                </div>
+            </div>
+            
+            <div class="menu-grid">
+                <button class="menu-btn" onclick="startGame('classic')">
+                    <span class="emoji">🎯</span>
+                    <div class="info">
+                        <div class="name">Классика</div>
+                        <div class="desc">5 букв, 6 попыток</div>
+                    </div>
+                </button>
+                
+                <button class="menu-btn" onclick="startGame('hardcore')">
+                    <span class="emoji">💪</span>
+                    <div class="info">
+                        <div class="name">Хардкор</div>
+                        <div class="desc">4 буквы, 5 попыток</div>
+                    </div>
+                </button>
+                
+                <button class="menu-btn" onclick="startGame('marathon')">
+                    <span class="emoji">🏃</span>
+                    <div class="info">
+                        <div class="name">Марафон</div>
+                        <div class="desc">6 букв, 7 попыток</div>
+                    </div>
+                </button>
+                
+                <button class="menu-btn" onclick="startGame('daily')">
+                    <span class="emoji">📅</span>
+                    <div class="info">
+                        <div class="name">Слово дня</div>
+                        <div class="desc">Одно на всех, раз в день</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ЭКРАН ИГРЫ -->
+    <div class="screen" id="gameScreen">
+        <div class="container">
+            <div class="game-header">
+                <button class="back-btn" onclick="backToMenu()">← Назад</button>
+                <div class="mode-badge" id="modeBadge">КЛАССИКА</div>
+                <div class="timer" id="timer">0:00</div>
+            </div>
+            
+            <div class="board" id="board"></div>
+            <div class="message" id="message"></div>
+            <div class="keyboard" id="keyboard"></div>
+        </div>
+    </div>
+    
+    <!-- ЭКРАН РЕЗУЛЬТАТА -->
+    <div class="screen" id="resultScreen">
+        <div class="container">
+            <div class="result-card">
+                <div class="result-emoji" id="resultEmoji">🎉</div>
+                <div class="result-title" id="resultTitle">Победа!</div>
+                <div class="result-word" id="resultWord">СЛОВО</div>
+                <div class="result-stats">
+                    <div class="result-stat">
+                        <span class="result-stat-value" id="resultTries">0</span>
+                        <span class="result-stat-label">Попыток</span>
+                    </div>
+                    <div class="result-stat">
+                        <span class="result-stat-value" id="resultTime">0s</span>
+                        <span class="result-stat-label">Время</span>
+                    </div>
+                    <div class="result-stat">
+                        <span class="result-stat-value" id="resultScore">0</span>
+                        <span class="result-stat-label">Очков</span>
+                    </div>
+                </div>
+                
+                <button class="action-btn" onclick="playAgain()">🔄 Играть снова</button>
+                <button class="action-btn secondary" onclick="backToMenu()">🏠 В меню</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.disableVerticalSwipes && tg.disableVerticalSwipes();
+        
+        // === СЛОВА ===
+        const WORDS_5 = [
+            "абрис", "автор", "агент", "адрес", "азарт", "актер", "аллея", "алмаз", "альбом", "ангел",
+            "арбуз", "арена", "армия", "аромат", "архив", "атака", "атлас", "афиша", "багаж", "базар",
+            "балет", "банан", "банда", "банк", "барон", "батон", "башня", "белка", "берег", "беседа",
+            "билет", "биржа", "битва", "бланк", "блеск", "блок", "бокал", "бомба", "бонус", "бочка",
+            "буква", "букет", "булка", "бумага", "бутон", "вагон", "ванна", "ведро", "веник", "верба",
+            "весна", "ветер", "ветка", "вечер", "вилка", "вирус", "вишня", "влага", "вода", "воздух",
+            "война", "вокал", "волна", "волос", "ворон", "восток", "врата", "время", "выбор", "вывод",
+            "выдра", "вызов", "высота", "вышка", "вьюга", "гавань", "газон", "галка", "гамак", "гараж",
+            "гвоздь", "гений", "герб", "гимн", "гитара", "глава", "глаз", "глина", "глобус", "гнездо",
+            "гном", "голос", "гора", "город", "гость", "градус", "гранат", "грань", "граф", "гроза",
+            "грудь", "грунт", "группа", "груша", "грязь", "губка", "давка", "дамба", "дверь", "дворец",
+            "девиз", "декор", "дело", "деньги", "диван", "диета", "диск", "добро", "дождь", "доза",
+            "доклад", "долг", "доллар", "доска", "доход", "дочка", "драка", "дрова", "дрозд", "друг",
+            "дуга", "дума", "дупло", "дурак", "духи", "дуэль", "дуэт", "дыня", "дятел", "ежик",
+            "жажда", "жало", "жанр", "жара", "жезл", "желе", "жемчуг", "жетон", "живот", "жизнь",
+            "жилет", "жираф", "журнал", "жюри", "забава", "забег", "забор", "завод", "загар", "задача",
+            "заказ", "закат", "закон", "залив", "залог", "замок", "запах", "заряд", "затея", "защита",
+            "звезда", "зверь", "звук", "земля", "зенит", "зерно", "зима", "знамя", "знание", "золото",
+            "зомби", "зрачок", "игрок", "идеал", "идея", "изба", "изгиб", "излом", "икона", "икра",
+            "имбирь", "индюк", "иней", "искра", "исход", "итог", "кабан", "кабель", "кабина", "каблук",
+            "казак", "какао", "калач", "калина", "камень", "камин", "канал", "канат", "канон", "каприз",
+            "карта", "касса", "катер", "каток", "каюта", "кварц", "кедр", "кекс", "кепка", "кефир",
+            "кинжал", "киоск", "кисть", "клевер", "клетка", "климат", "клоун", "клумба", "ключ", "книга",
+            "кнопка", "кобра", "ковер", "ковш", "кодекс", "кожа", "козел", "кокос", "колено", "колесо",
+            "колос", "кольцо", "комар", "комод", "компас", "конус", "конь", "копье", "корень", "король",
+            "корпус", "коса", "космос", "костер", "костюм", "кошка", "краб", "край", "краска", "кредит",
+            "кресло", "кризис", "крот", "круг", "круиз", "крыло", "крыша", "кубик", "кубок", "кукла",
+            "кулак", "кулон", "культ", "купон", "курс", "куртка", "куст", "кухня", "лагерь", "ладонь",
+            "лазер", "лакей", "лампа", "лапа", "ласка", "ластик", "лачуга", "лебедь", "легенда", "лейка",
+            "лекция", "лента", "лесть", "лиана", "ливень", "лига", "лидер", "лилия", "лимон", "линия",
+            "липа", "лира", "листок", "литр", "лифт", "лицей", "лицо", "лобби", "ловец", "логика",
+            "лодка", "ложка", "локоть", "лопата", "лоток", "лужа", "луна", "лупа", "лыжня", "любовь",
+            "люстра", "лютик", "лягушка", "магия", "магнит", "мазь", "майка", "майор", "макет", "малина",
+            "малыш", "мамонт", "манго", "манеж", "манера", "марка", "марля", "маска", "масло", "масса",
+            "масть", "мафия", "мачта", "машина", "медаль", "медведь", "мелодия", "мент", "меню", "металл",
+            "метель", "метка", "метла", "метод", "метр", "мечта", "мешок", "мидия", "микроб", "миля",
+            "мина", "минус", "миска", "митинг", "миф", "мнение", "модель", "модем", "мозаика", "молоко",
+            "молот", "момент", "монастырь", "монах", "монета", "монитор", "море", "морковь", "мороз", "моряк",
+            "мост", "мотив", "мотор", "мошка", "мощь", "мрамор", "музей", "музыка", "мундир", "муравей",
+            "мусор", "муфта", "муха", "мыло", "мысль", "мышца", "мюзикл", "мякоть", "мятеж", "набат",
+            "набег", "навес", "навык", "надежда", "надзор", "нажим", "налог", "намек", "народ", "наряд",
+            "насос", "наука", "нация", "начало", "небо", "невод", "недуг", "нектар", "нерв", "нефть",
+            "ниша", "новость", "нога", "нож", "ножны", "ноль", "номер", "нора", "норка", "носок",
+            "нота", "ночлег", "ночь", "ноша", "нрав", "нужда", "нытик", "нюанс", "нюх", "няня",
+            "обвал", "обгон", "обед", "обзор", "обида", "облако", "обман", "обмен", "обои", "оборот",
+            "обрыв", "обувь", "обход", "объем", "овраг", "овца", "огонь", "огород", "ограда", "огурец",
+            "одеяло", "ожог", "озеро", "озноб", "океан", "окно", "окоп", "октава", "олень", "оливка",
+            "омлет", "опера", "опека", "опора", "оправа", "опрос", "оптика", "опушка", "опыт", "орден",
+            "орех", "оркестр", "оружие", "оса", "осел", "осина", "осколок", "основа", "остров", "отбор",
+            "отвар", "ответ", "отдел", "отдых", "отель", "отзыв", "отказ", "откос", "отлив", "отмель",
+            "отпор", "отпуск", "отрасль", "отрезок", "отсек", "оттенок", "отчет", "охота", "охрана", "оценка",
+            "очаг", "очередь", "очерк", "очки", "ошейник", "ошибка", "ощупь", "павлин", "падение", "пакет",
+            "палата", "палец", "палитра", "палка", "палуба", "память", "панда", "панель", "паника", "панцирь",
+            "папа", "папирус", "парад", "парк", "паром", "парта", "парус", "пасека", "паспорт", "паста",
+            "пастух", "патент", "пауза", "паук", "пафос", "пациент", "пашня", "певец", "педагог", "пейзаж",
+            "пекарь", "пеликан", "пена", "пенал", "пение", "пепел", "перец", "перила", "перо", "перрон",
+            "персик", "песня", "песок", "печать", "печень", "пещера", "пиала", "пижама", "пикап", "пила",
+            "пилот", "пингвин", "пионер", "пират", "пирог", "письмо", "питон", "пихта", "пицца", "план",
+            "пламя", "планета", "пласт", "плата", "платок", "плащ", "плеер", "племя", "плен", "плечо",
+            "плита", "плов", "пловец", "плод", "пломба", "плот", "площадь", "плуг", "плюс", "пляж",
+            "побег", "повар", "повод", "поворот", "погода", "погоня", "подвал", "подвиг", "подкова", "подъезд",
+            "поезд", "пожар", "позор", "поиск", "покой", "покров", "полдень", "поле", "полет", "полигон",
+            "полк", "полночь", "полог", "полоса", "полюс", "помощь", "помпа", "пони", "пончик", "попытка",
+            "порез", "порог", "порох", "порт", "портал", "порция", "порядок", "посад", "посол", "посох",
+            "посылка", "поток", "потолок", "поход", "почва", "почта", "поэма", "поэт", "правда", "право",
+            "праздник", "прайд", "практика", "прах", "предмет", "пресс", "прибор", "привет", "приз", "приказ",
+            "принц", "природа", "приют", "проба", "провод", "прогноз", "проект", "прокат", "прокол", "пролив",
+            "промысел", "пропуск", "прорыв", "простор", "протез", "профиль", "процент", "процесс", "пруд", "пружина",
+            "прыжок", "птица", "пудинг", "пузырь", "пуля", "пункт", "пупок", "пурга", "пустяк", "путь",
+            "пух", "пчела", "пшеница", "пятка", "пятно", "работа", "равнина", "радар", "радио", "радуга",
+            "разбег", "разбой", "развал", "разгар", "раздел", "разлад", "размер", "разум", "район", "ракета",
+            "ранец", "рапорт", "расход", "расчет", "рацион", "ребро", "ребус", "реванш", "реверс", "регби",
+            "редис", "режим", "резак", "резерв", "результат", "рейд", "рейтинг", "река", "рекорд", "релиз",
+            "рельеф", "рельс", "ремонт", "рента", "репорт", "ресница", "ресторан", "реферат", "рецепт", "речь",
+            "решение", "ритм", "рифма", "робот", "родник", "розетка", "рожок", "роза", "роман", "ромб",
+            "росток", "рояль", "ртуть", "рубеж", "рубин", "рубль", "ружье", "рукав", "рулет", "ручка",
+            "рыбак", "рынок", "рыцарь", "рюкзак", "сабля", "садик", "сад", "салат", "салон", "салют",
+            "самолет", "санки", "сапог", "сарай", "сатира", "сахар", "сбор", "свадьба", "свеча", "свет",
+            "свинец", "свиток", "свобода", "связь", "сеанс", "север", "седло", "сезон", "секрет", "сектор",
+            "селедка", "село", "семья", "сенат", "сердце", "сериал", "сервиз", "серия", "сетка", "сигнал",
+            "сила", "силуэт", "символ", "сироп", "система", "ситец", "ситуация", "синяк", "сказка", "скала",
+            "скамья", "сквер", "скидка", "склад", "склон", "скорость", "скрипка", "скука", "слава", "слеза",
+            "слива", "слово", "слуга", "случай", "смесь", "сметана", "смех", "смола", "смысл", "снег",
+            "собака", "собрание", "событие", "совет", "совесть", "сокол", "солдат", "солнце", "соловей", "соль",
+            "сомнение", "сон", "сопка", "сорока", "сорт", "сосед", "сосна", "сосулька", "сотня", "соус",
+            "союз", "спина", "спирт", "спичка", "спорт", "спрос", "спутник", "среда", "ссора", "стадион",
+            "стакан", "сталь", "станок", "станция", "старт", "статья", "ствол", "стекло", "стена", "степь",
+            "стиль", "стимул", "стих", "стоимость", "столб", "столица", "стопа", "сторож", "страна", "страсть",
+            "страх", "стрела", "строфа", "струна", "студент", "стул", "стук", "сугроб", "судьба", "суета",
+            "сукно", "сумка", "сумрак", "суп", "сурок", "сустав", "сутки", "суша", "сфера", "схема",
+            "сцена", "счет", "съезд", "сын", "сыпь", "сырье", "сюжет", "табак", "табло", "табун",
+            "тайга", "тайна", "талант", "талия", "талон", "тальк", "танец", "танк", "тапочки", "тарелка",
+            "тариф", "тахта", "тачка", "театр", "тезис", "телега", "телефон", "тело", "тема", "тембр",
+            "тенор", "тень", "терем", "термин", "терраса", "тесто", "тетрадь", "тигр", "тираж", "титан",
+            "титул", "тишина", "ткань", "товар", "толпа", "томат", "тонна", "топаз", "топор", "торба",
+            "торец", "торт", "тоска", "тост", "тотем", "точка", "трава", "трактор", "трамвай", "траншея",
+            "трап", "трасса", "траур", "трек", "тренер", "треск", "тропа", "трос", "труба", "труд",
+            "трюк", "трюм", "туман", "тундра", "туника", "тупик", "тур", "турнир", "туфля", "туча",
+            "тушь", "тыква", "тыл", "тюбик", "тюлень", "тюрьма", "убор", "уборка", "убыток", "увоз",
+            "угол", "угроза", "удав", "удар", "удача", "удочка", "ужин", "узел", "узор", "указ",
+            "уклад", "уклон", "укол", "уксус", "улика", "улица", "улов", "улыбка", "умение", "унисон",
+            "упор", "управа", "ураган", "урожай", "урок", "урон", "усадьба", "услуга", "успех", "устав",
+            "утес", "уход", "участок", "ученик", "учет", "учитель", "ушко", "ущелье", "уют", "фабрика",
+            "фазан", "факел", "факт", "фамилия", "фанат", "фантом", "фара", "фарфор", "фасад", "фасоль",
+            "фауна", "февраль", "ферма", "фестиваль", "фигура", "физика", "фиалка", "фибра", "фикция", "филин",
+            "фильм", "финал", "финик", "фирма", "флаг", "фланг", "флейта", "флора", "флот", "фокус",
+            "фонарь", "фонд", "фонтан", "форма", "форум", "фото", "фраза", "фрак", "фронт", "фрукт",
+            "футбол", "футляр", "халат", "халва", "характер", "хвост", "хижина", "хирург", "хит", "хищник",
+            "хлеб", "хлопок", "хобби", "хобот", "ход", "хозяин", "хоккей", "холм", "холод", "холст",
+            "хомут", "хор", "хорек", "хребет", "хрип", "хроника", "хрусталь", "художник", "хутор", "цапля",
+            "царство", "царь", "цвет", "цель", "цемент", "центр", "цепь", "цикл", "цилиндр", "цирк",
+            "цитата", "цифра", "цыган", "чайка", "часть", "часы", "чашка", "челнок", "человек", "чемпион",
+            "червяк", "череп", "черта", "чеснок", "честь", "четверг", "число", "чистота", "чтец", "чтение",
+            "чугун", "чудак", "чудо", "чулан", "чулок", "чучело", "шабаш", "шаг", "шайба", "шалаш",
+            "шампунь", "шанс", "шапка", "шарик", "шарф", "шасси", "шатер", "шахта", "шахматы", "шашлык",
+            "швейцар", "шедевр", "шелест", "шелк", "шепот", "шерсть", "шкаф", "школа", "шкура", "шланг",
+            "шлюпка", "шляпа", "шнур", "шов", "шоссе", "шофер", "шпага", "шпион", "шрифт", "штаб",
+            "штамм", "штора", "штраф", "штрих", "штурм", "штука", "шуба", "шум", "шутка", "щегол",
+            "щедрость", "щека", "щель", "щенок", "щетка", "щипцы", "щит", "эскиз", "эссе", "этаж",
+            "этап", "этикет", "этюд", "эфир", "эхо", "юбилей", "юбка", "юмор", "юнга", "юрист",
+            "яхта", "яблоко", "ягода", "ядро", "язык", "яйцо", "якорь", "яма", "январь", "ярлык",
+            "ярмарка", "ясень", "ясность", "яхонт", "ячмень", "ящик"
+        ];
+        
+        const WORDS_4 = WORDS_5.filter(w => w.length === 4);
+        const WORDS_6 = WORDS_5.filter(w => w.length === 6);
+        
+        // Если мало 4-буквенных и 6-буквенных — дополняем из основного
+        const ALL_WORDS_4 = WORDS_5.filter(w => w.length === 4);
+        const ALL_WORDS_6 = WORDS_5.filter(w => w.length === 6);
+        
+        // Используем все 5-буквенные как основу для всех режимов
+        // (для 4 и 6 просто берём подходящие)
+        
+        // === КОНФИГ РЕЖИМОВ ===
+        const MODES = {
+            classic: { name: 'КЛАССИКА', len: 5, tries: 6, words: WORDS_5 },
+            hardcore: { name: 'ХАРДКОР', len: 5, tries: 5, words: WORDS_5 },
+            marathon: { name: 'МАРАФОН', len: 5, tries: 7, words: WORDS_5 },
+            daily: { name: 'СЛОВО ДНЯ', len: 5, tries: 6, words: WORDS_5 }
+        };
+        
+        // === СОСТОЯНИЕ ===
+        let state = {
+            mode: 'classic',
+            secret: '',
+            currentRow: 0,
+            currentCol: 0,
+            currentGuess: '',
+            gameOver: false,
+            startTime: 0,
+            timerInterval: null,
+            config: MODES.classic
+        };
+        
+        let stats = JSON.parse(localStorage.getItem('wordle_stats') || '{"games":0,"wins":0,"streak":0,"bestStreak":0}');
+        
+        // === УТИЛИТЫ ===
+        function getDailyWord() {
+            const today = new Date().toISOString().split('T')[0];
+            let hash = 0;
+            for (let i = 0; i < today.length; i++) {
+                hash = ((hash << 5) - hash) + today.charCodeAt(i);
+                hash |= 0;
+            }
+            return WORDS_5[Math.abs(hash) % WORDS_5.length];
+        }
+        
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+        
+        function updateMenuStats() {
+            document.getElementById('menuGames').textContent = stats.games;
+            document.getElementById('menuWins').textContent = stats.wins;
+            document.getElementById('menuStreak').textContent = stats.streak;
+        }
+        
+        function saveStats() {
+            localStorage.setItem('wordle_stats', JSON.stringify(stats));
+        }
+        
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        // === ИГРА ===
+        function startGame(mode) {
+            state.mode = mode;
+            state.config = MODES[mode];
+            state.currentRow = 0;
+            state.currentCol = 0;
+            state.currentGuess = '';
+            state.gameOver = false;
+            
+            if (mode === 'daily') {
+                state.secret = getDailyWord();
+            } else {
+                state.secret = state.config.words[Math.floor(Math.random() * state.config.words.length)];
+            }
+            
+            state.startTime = Date.now();
+            
+            document.getElementById('modeBadge').textContent = state.config.name;
+            
+            createBoard();
+            createKeyboard();
+            startTimer();
+            hideMessage();
+            
+            showScreen('gameScreen');
+            
+            console.log('Режим:', mode, '| Слово:', state.secret);
+        }
+        
+        function createBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            const len = state.config.len;
+            const rows = state.config.tries;
+            
+            board.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            
+            for (let r = 0; r < rows; r++) {
+                const row = document.createElement('div');
+                row.className = 'row';
+                row.id = `row-${r}`;
+                row.style.gridTemplateColumns = `repeat(${len}, 1fr)`;
+                
+                for (let c = 0; c < len; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${r}-${c}`;
+                    row.appendChild(cell);
+                }
+                board.appendChild(row);
+            }
+        }
+        
+        function createKeyboard() {
+            const keyboard = document.getElementById('keyboard');
+            keyboard.innerHTML = '';
+            const rows = [
+                ['й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ'],
+                ['ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э'],
+                ['enter', 'я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', 'backspace']
+            ];
+            rows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'keyboard-row';
+                row.forEach(key => {
+                    const btn = document.createElement('button');
+                    btn.className = 'key';
+                    btn.dataset.key = key;
+                    if (key === 'enter') {
+                        btn.textContent = 'ВВОД';
+                        btn.classList.add('wide');
+                    } else if (key === 'backspace') {
+                        btn.textContent = '⌫';
+                        btn.classList.add('wide');
+                    } else {
+                        btn.textContent = key.toUpperCase();
+                    }
+                    btn.addEventListener('click', () => handleKeyPress(key));
+                    rowDiv.appendChild(btn);
+                });
+                keyboard.appendChild(rowDiv);
+            });
+        }
+        
+        function handleKeyPress(key) {
+            if (state.gameOver) return;
+            
+            if (key === 'enter') {
+                submitGuess();
+            } else if (key === 'backspace') {
+                if (state.currentCol > 0) {
+                    state.currentCol--;
+                    state.currentGuess = state.currentGuess.slice(0, -1);
+                    const cell = document.getElementById(`cell-${state.currentRow}-${state.currentCol}`);
+                    cell.textContent = '';
+                    cell.classList.remove('filled');
+                }
+            } else if (state.currentCol < state.config.len) {
+                state.currentGuess += key;
+                const cell = document.getElementById(`cell-${state.currentRow}-${state.currentCol}`);
+                cell.textContent = key.toUpperCase();
+                cell.classList.add('filled');
+                state.currentCol++;
+            }
+        }
+        
+        function submitGuess() {
+            if (state.currentGuess.length !== state.config.len) {
+                showMessage(`Введи ${state.config.len} букв!`, 'error');
+                const row = document.getElementById(`row-${state.currentRow}`);
+                row.classList.add('shake');
+                setTimeout(() => row.classList.remove('shake'), 400);
+                return;
+            }
+            
+            const result = checkGuess(state.currentGuess, state.secret);
+            const len = state.config.len;
+            
+            for (let c = 0; c < len; c++) {
+                const cell = document.getElementById(`cell-${state.currentRow}-${c}`);
+                setTimeout(() => {
+                    cell.classList.add('flip');
+                    setTimeout(() => cell.classList.add(result[c]), 250);
+                }, c * 100);
+            }
+            
+            for (let c = 0; c < len; c++) {
+                const key = document.querySelector(`.key[data-key="${state.currentGuess[c]}"]`);
+                if (key) {
+                    if (result[c] === 'correct') {
+                        key.classList.remove('present', 'absent');
+                        key.classList.add('correct');
+                    } else if (result[c] === 'present' && !key.classList.contains('correct')) {
+                        key.classList.remove('absent');
+                        key.classList.add('present');
+                    } else if (result[c] === 'absent' && !key.classList.contains('correct') && !key.classList.contains('present')) {
+                        key.classList.add('absent');
+                    }
+                }
+            }
+            
+            setTimeout(() => {
+                if (state.currentGuess === state.secret) {
+                    winGame();
+                } else if (state.currentRow === state.config.tries - 1) {
+                    loseGame();
+                } else {
+                    state.currentRow++;
+                    state.currentCol = 0;
+                    state.currentGuess = '';
+                }
+            }, 500);
+        }
+        
+        function checkGuess(guess, secret) {
+            const result = new Array(secret.length).fill('absent');
+            const secretArr = secret.split('');
+            const guessArr = guess.split('');
+            
+            for (let i = 0; i < secret.length; i++) {
+                if (guessArr[i] === secretArr[i]) {
+                    result[i] = 'correct';
+                    secretArr[i] = null;
+                    guessArr[i] = null;
+                }
+            }
+            
+            for (let i = 0; i < secret.length; i++) {
+                if (guessArr[i] !== null) {
+                    const index = secretArr.indexOf(guessArr[i]);
+                    if (index !== -1) {
+                        result[i] = 'present';
+                        secretArr[index] = null;
+                    }
+                }
+            }
+            return result;
+        }
+        
+        function winGame() {
+            state.gameOver = true;
+            stopTimer();
+            
+            const tries = state.currentRow + 1;
+            const time = Math.floor((Date.now() - state.startTime) / 1000);
+            const baseScore = (state.config.tries - tries + 1) * 10;
+            const speedBonus = Math.max(0, 30 - time);
+            const score = baseScore + speedBonus;
+            
+            stats.games++;
+            stats.wins++;
+            stats.streak++;
+            if (stats.streak > stats.bestStreak) stats.bestStreak = stats.streak;
+            saveStats();
+            updateMenuStats();
+            
+            showResult(true, state.secret, tries, time, score);
+            
+            if (tg.sendData) {
+                try {
+                    tg.sendData(JSON.stringify({
+                        action: 'win',
+                        word: state.secret,
+                        tries: tries,
+                        mode: state.mode,
+                        time: time
+                    }));
+                } catch (e) { console.log(e); }
+            }
+        }
+        
+        function loseGame() {
+            state.gameOver = true;
+            stopTimer();
+            
+            stats.games++;
+            stats.streak = 0;
+            saveStats();
+            updateMenuStats();
+            
+            const time = Math.floor((Date.now() - state.startTime) / 1000);
+            showResult(false, state.secret, state.config.tries, time, 0);
+            
+            if (tg.sendData) {
+                try {
+                    tg.sendData(JSON.stringify({
+                        action: 'lose',
+                        word: state.secret,
+                        mode: state.mode
+                    }));
+                } catch (e) { console.log(e); }
+            }
+        }
+        
+        function showResult(win, word, tries, time, score) {
+            document.getElementById('resultEmoji').textContent = win ? '🎉' : '😢';
+            document.getElementById('resultTitle').textContent = win ? 'ПОБЕДА!' : 'ПРОИГРЫШ';
+            document.getElementById('resultWord').textContent = word.toUpperCase();
+            document.getElementById('resultTries').textContent = tries;
+            document.getElementById('resultTime').textContent = formatTime(time);
+            document.getElementById('resultScore').textContent = score;
+            
+            showScreen('resultScreen');
+        }
+        
+        function playAgain() {
+            startGame(state.mode);
+        }
+        
+        function backToMenu() {
+            stopTimer();
+            updateMenuStats();
+            showScreen('menuScreen');
+        }
+        
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message show ${type}`;
+            setTimeout(() => msg.className = 'message', 2000);
+        }
+        
+        function hideMessage() {
+            document.getElementById('message').className = 'message';
+        }
+        
+        function startTimer() {
+            stopTimer();
+            state.timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+                document.getElementById('timer').textContent = formatTime(elapsed);
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+                state.timerInterval = null;
+            }
+        }
+        
+        // Физическая клавиатура
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('gameScreen').classList.contains('active')) {
+                if (e.key === 'Enter') handleKeyPress('enter');
+                else if (e.key === 'Backspace') handleKeyPress('backspace');
+                else if (e.key.length === 1 && /[а-яё]/i.test(e.key)) handleKeyPress(e.key.toLowerCase());
+            }
+        });
+        
+        // === СТАРТ ===
+        updateMenuStats();
+    </script>
+</body>
+</html>
